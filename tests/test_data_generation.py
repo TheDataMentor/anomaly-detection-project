@@ -1,35 +1,32 @@
 import pytest
 import pandas as pd
-import numpy as np
-from src.anomaly_detection import detect_anomalies
+from src.data_generation import generate_synthetic_data
 
-def test_detect_anomalies():
-    # Create a sample dataset with known anomalies
-    dates = pd.date_range(start='2022-01-01', periods=100, freq='D')
-    values = np.random.randn(100).cumsum() + 100  # Random walk
-    values[50] += 50  # Introduce an anomaly
-    values[80] -= 50  # Introduce another anomaly
+def test_generate_synthetic_data():
+    df = generate_synthetic_data(start_date='2022-01-01', periods=100)
     
-    df = pd.DataFrame({'date': dates, 'value': values})
-    df.set_index('date', inplace=True)
+    # Check if the dataframe has the correct number of rows
+    assert len(df) == 5000  # 10 stores * 5 categories * 100 days
     
-    result = detect_anomalies(df)
+    # Check if all expected columns are present
+    expected_columns = ['date', 'store', 'category', 'value']
+    assert all(col in df.columns for col in expected_columns)
     
-    # Check if the function adds the expected columns
-    assert all(col in result.columns for col in ['forecast', 'residual', 'residual_mean', 'residual_std', 'anomaly'])
+    # Check if the date range is correct
+    assert df['date'].min() == pd.Timestamp('2022-01-01')
+    assert df['date'].max() == pd.Timestamp('2022-04-10')  # 100 days after start
     
-    # Check if the known anomalies are detected
-    assert result.loc['2022-02-19', 'anomaly']  # 50th day
-    assert result.loc['2022-03-21', 'anomaly']  # 80th day
+    # Check if all stores and categories are present
+    assert df['store'].nunique() == 10
+    assert df['category'].nunique() == 5
     
-    # Check if the number of detected anomalies is reasonable (adjust as needed)
-    assert 2 <= result['anomaly'].sum() <= 5
+    # Check if values are within a reasonable range
+    assert df['value'].min() >= 0
+    assert df['value'].max() < 1000  # Adjust this based on your expected maximum value
 
-    # Check if forecasts are generated for all data points
-    assert result['forecast'].notna().all()
-    
-    # Check if residuals are calculated correctly
-    np.testing.assert_allclose(result['residual'], result['value'] - result['forecast'])
+    # Check for the presence of seasonality (this is a simple check and might need refinement)
+    monthly_avg = df.groupby(df['date'].dt.month)['value'].mean()
+    assert monthly_avg.max() / monthly_avg.min() > 1.1  # Expecting at least 10% difference between highest and lowest months
 
 if __name__ == "__main__":
     pytest.main([__file__])
