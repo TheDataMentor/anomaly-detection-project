@@ -1,54 +1,54 @@
 import pandas as pd
 import numpy as np
 from statsmodels.tsa.arima.model import ARIMA
-from statsmodels.tsa.stattools import adfuller
 
-def test_stationarity(timeseries):
+def detect_anomalies(df, value_col='value', date_col='date', window=30, threshold=3):
     """
-    Perform Dickey-Fuller test for stationarity
-    """
-    result = adfuller(timeseries, autolag='AIC')
-    return result[1] <= 0.05
-
-def difference_series(series):
-    """
-    Difference the series until it becomes stationary
-    """
-    diff = series
-    count = 0
-    while not test_stationarity(diff):
-        diff = diff.diff().dropna()
-        count += 1
-    return diff, count
-
-def detect_anomalies(df, column='value', threshold=3):
-    """
-    Detect anomalies using ARIMA forecasting residuals
-    """
-    series = df[column]
+    Detect anomalies in time series data using ARIMA forecasting residuals.
     
-    # Difference series if not stationary
-    diff_series, d = difference_series(series)
+    Args:
+    df (pd.DataFrame): Input dataframe with datetime index and value column
+    value_col (str): Name of the column containing the time series values
+    date_col (str): Name of the column containing the dates (if not index)
+    window (int): Rolling window size for calculating mean and std of residuals
+    threshold (float): Number of standard deviations to use as anomaly threshold
+    
+    Returns:
+    pd.DataFrame: Original dataframe with additional columns for forecast and anomaly flag
+    """
+    
+    # Ensure the dataframe is sorted by date
+    df = df.sort_index() if df.index.name == date_col else df.sort_values(date_col)
     
     # Fit ARIMA model
-    model = ARIMA(series, order=(1, d, 1))
+    model = ARIMA(df[value_col], order=(1,1,1))  # You might need to adjust these parameters
     results = model.fit()
     
+    # Generate forecasts
+    forecast = results.forecast(steps=len(df))
+    
     # Calculate residuals
-    residuals = results.resid
+    df['forecast'] = forecast
+    df['residual'] = df[value_col] - df['forecast']
+    
+    # Calculate rolling statistics
+    df['residual_mean'] = df['residual'].rolling(window=window).mean()
+    df['residual_std'] = df['residual'].rolling(window=window).std()
     
     # Detect anomalies
-    mean_residual = np.mean(residuals)
-    std_residual = np.std(residuals)
-    anomalies = np.abs(residuals - mean_residual) > (threshold * std_residual)
+    df['anomaly'] = abs(df['residual'] - df['residual_mean']) > (threshold * df['residual_std'])
     
-    df['anomaly'] = anomalies
     return df
 
 if __name__ == "__main__":
-    df = pd.read_csv('data/synthetic_data.csv', parse_dates=['date'])
+    # Test the function with some sample data
+    dates = pd.date_range(start='2022-01-01', periods=100, freq='D')
+    values = np.random.randn(100).cumsum() + 100  # Random walk
+    values[80] += 50  # Introduce an anomaly
+    
+    df = pd.DataFrame({'date': dates, 'value': values})
     df.set_index('date', inplace=True)
     
-    df_with_anomalies = detect_anomalies(df)
-    print(f"Detected {df_with_anomalies['anomaly'].sum()} anomalies")
-    df_with_anomalies.to_csv('results/detected_anomalies.csv')
+    result = detect_anomalies(df)
+    print(f"Detected {result['anomaly'].sum()} anomalies")
+    print(result[result['anomaly']])
