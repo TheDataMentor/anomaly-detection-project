@@ -19,70 +19,61 @@ The script saves the generated data to a CSV file and prints some summary statis
 
 
 
-# Set random seed for reproducibility
-np.random.seed(42)
-
-# Generate date range for two years
-start_date = datetime(2022, 1, 1)
-end_date = datetime(2023, 12, 31)
-date_range = pd.date_range(start=start_date, end=end_date, freq='D')
-
-# Define categories and stores
-categories = ['Electronics', 'Clothing', 'Groceries', 'Home & Garden', 'Toys']
-stores = [f'Store_{i}' for i in range(1, 11)]  # 10 stores
-
-# Create base data
-data = []
-for store in stores:
-    for category in categories:
-        base_sales = np.random.randint(1000, 5000)
-        trend = np.random.uniform(0.8, 1.2)
-        seasonal_amplitude = np.random.uniform(0.1, 0.3) * base_sales
-        
-        for date in date_range:
-            # Add trend
-            trend_component = base_sales * (trend ** ((date - start_date).days / 365))
+def generate_synthetic_data(start_date='2022-01-01', periods=730, freq='D'):
+    """
+    Generate synthetic retail purchase data with trend, seasonality, and anomalies for multiple stores and categories.
+    """
+    date_range = pd.date_range(start=start_date, periods=periods, freq=freq)
+    
+    # Define categories and stores
+    categories = ['Electronics', 'Clothing', 'Groceries', 'Home & Garden', 'Toys']
+    stores = [f'Store_{i}' for i in range(1, 11)]  # 10 stores
+    
+    data = []
+    for store in stores:
+        for category in categories:
+            # Generate base trend
+            base_value = np.random.randint(100, 200)
+            trend = np.linspace(base_value, base_value * 2, periods)
             
-            # Add seasonality (yearly cycle)
-            day_of_year = date.dayofyear
-            seasonal_component = seasonal_amplitude * np.sin(2 * np.pi * day_of_year / 365)
+            # Add seasonality
+            seasonality_amplitude = np.random.uniform(30, 70)
+            seasonality = seasonality_amplitude * np.sin(np.arange(periods) * (2 * np.pi / 365))
             
             # Add noise
-            noise = np.random.normal(0, base_sales * 0.1)
+            noise = np.random.normal(0, base_value * 0.1, periods)
             
-            # Calculate sales
-            sales = max(0, trend_component + seasonal_component + noise)
+            # Combine components
+            values = trend + seasonality + noise
             
-            data.append({
-                'Date': date,
-                'Store': store,
-                'Category': category,
-                'Sales': round(sales, 2)
-            })
+            # Add anomalies (randomly for each store-category combination)
+            anomaly_indices = np.random.choice(periods, size=3, replace=False)
+            for idx in anomaly_indices:
+                values[idx] += np.random.uniform(base_value * 0.5, base_value)
+            
+            # Ensure no negative values
+            values = np.maximum(values, 0)
+            
+            for date, value in zip(date_range, values):
+                data.append({
+                    'date': date,
+                    'store': store,
+                    'category': category,
+                    'value': round(value, 2)
+                })
+    
+    df = pd.DataFrame(data)
+    return df
 
-# Convert to DataFrame
-df = pd.DataFrame(data)
-
-# Add anomalies (10% chance for each day)
-anomaly_dates = date_range[np.random.random(len(date_range)) < 0.1]
-for date in anomaly_dates:
-    mask = (df['Date'] == date)
-    df.loc[mask, 'Sales'] *= np.random.uniform(1.5, 3)
-
-# Sort the DataFrame
-df = df.sort_values(['Date', 'Store', 'Category'])
-
-# Display the first few rows
-print(df.head())
-
-# Save to CSV
-df.to_csv('synthetic_retail_data.csv', index=False)
-print("Data saved to 'synthetic_retail_data.csv'")
-
-# Summary statistics
-print("\nSummary Statistics:")
-print(df.groupby('Category')['Sales'].describe())
-
-# Verify seasonality
-print("\nMonthly Average Sales:")
-print(df.groupby([df['Date'].dt.to_period('M'), 'Category'])['Sales'].mean().unstack())
+if __name__ == "__main__":
+    df = generate_synthetic_data()
+    df.to_csv('data/synthetic_retail_data.csv', index=False)
+    print("Synthetic retail data generated and saved to data/synthetic_retail_data.csv")
+    
+    # Display summary statistics
+    print("\nSummary Statistics:")
+    print(df.groupby('category')['value'].describe())
+    
+    # Verify seasonality
+    print("\nMonthly Average Sales:")
+    print(df.groupby([df['date'].dt.to_period('M'), 'category'])['value'].mean().unstack())
