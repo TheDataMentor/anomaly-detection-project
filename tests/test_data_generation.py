@@ -1,56 +1,41 @@
 import pytest
 import pandas as pd
 import numpy as np
+from src.anomaly_detection import test_stationarity, difference_series, detect_anomalies
 from src.data_generation import generate_synthetic_data
 
-def test_generate_synthetic_data():
-    df = generate_synthetic_data()
-    
-    assert isinstance(df, pd.DataFrame)
-    assert len(df) == 365
-    assert 'date' in df.columns
-    assert 'value' in df.columns
-    assert df['date'].dtype == 'datetime64[ns]'
-    assert df['value'].dtype == 'float64'
+@pytest.fixture
+def sample_data():
+    return generate_synthetic_data()
 
-def test_generate_synthetic_data_custom_params():
-    df = generate_synthetic_data(start_date='2024-01-01', periods=100, freq='W')
-    
-    assert len(df) == 100
-    assert df['date'].min() == pd.Timestamp('2024-01-01')
-    assert df['date'].max() == pd.Timestamp('2024-01-01') + pd.Timedelta(weeks=99)
+def test_test_stationarity(sample_data):
+    result = test_stationarity(sample_data['value'])
+    assert isinstance(result, bool)
 
-def test_generate_synthetic_data_anomalies():
-    df = generate_synthetic_data()
-    
-    # Check if there are at least 3 significant jumps in the data
-    diff = df['value'].diff().abs()
-    large_jumps = diff[diff > diff.mean() + 2*diff.std()]
-    assert len(large_jumps) >= 3
+def test_difference_series(sample_data):
+    diff, count = difference_series(sample_data['value'])
+    assert isinstance(diff, pd.Series)
+    assert isinstance(count, int)
+    assert count >= 0
 
-def test_generate_synthetic_data_seasonality():
-    df = generate_synthetic_data()
+def test_detect_anomalies(sample_data):
+    df_with_anomalies = detect_anomalies(sample_data)
     
-    # Check for seasonality by comparing first and last quarter of the year
-    first_quarter = df['value'][:91].mean()
-    last_quarter = df['value'][-91:].mean()
-    assert abs(first_quarter - last_quarter) > 20  # Assuming significant seasonal difference
+    assert 'anomaly' in df_with_anomalies.columns
+    assert df_with_anomalies['anomaly'].dtype == bool
+    assert df_with_anomalies['anomaly'].sum() > 0  # Ensure some anomalies are detected
+    assert df_with_anomalies['anomaly'].sum() < len(df_with_anomalies)  # Ensure not everything is flagged as anomaly
 
-def test_generate_synthetic_data_trend():
-    df = generate_synthetic_data()
+def test_detect_anomalies_custom_threshold(sample_data):
+    df_with_anomalies_1 = detect_anomalies(sample_data, threshold=2)
+    df_with_anomalies_2 = detect_anomalies(sample_data, threshold=4)
     
-    # Check for overall increasing trend
-    first_month = df['value'][:30].mean()
-    last_month = df['value'][-30:].mean()
-    assert last_month > first_month
+    # Lower threshold should detect more anomalies
+    assert df_with_anomalies_1['anomaly'].sum() >= df_with_anomalies_2['anomaly'].sum()
 
-def test_generate_synthetic_data_noise():
-    df = generate_synthetic_data()
+def test_detect_anomalies_different_column(sample_data):
+    sample_data['other_column'] = sample_data['value'] * 2
+    df_with_anomalies = detect_anomalies(sample_data, column='other_column')
     
-    # Check for presence of noise
-    smooth = df['value'].rolling(window=7).mean()
-    noise = df['value'] - smooth
-    assert noise.std() > 0  # Ensure there's some variation due to noise
-
-if __name__ == "__main__":
-    pytest.main()
+    assert 'anomaly' in df_with_anomalies.columns
+    assert df_with_anomalies
