@@ -26,21 +26,41 @@ We implemented an anomaly detection system using ARIMA forecasting residuals. Th
 - matplotlib and seaborn: For data visualization
 - Flask: For creating a simple web application to showcase results
 - pytest: For unit testing
+- Chart.js: For interactive data visualization in the web application
 
-## Key Findings
+## Key Features
 
-1. The ARIMA-based anomaly detection method identified several anomalies that were missed by traditional methods.
-2. These anomalies corresponded to significant business events or process inefficiencies that were previously unnoticed.
-3. The method proved to be robust against false positives, providing high-confidence anomaly detection.
+1. Synthetic data generation with customizable parameters
+2. ARIMA-based anomaly detection
+3. Comprehensive unit tests for data generation and anomaly detection
+4. Jupyter notebook for in-depth analysis and visualization
+5. Web application for interactive visualization of results
 
 ## Project Structure
 
-- `data/`: Contains the synthetic data used for the project.
-- `src/`: Source code for data generation, anomaly detection, and visualization.
-- `notebooks/`: Jupyter notebooks for exploratory data analysis and model development.
-- `tests/`: Unit tests for the main functionalities.
-- `results/`: Output plots and visualizations.
-- `app/`: A simple Flask web application to showcase the results.
+```
+anomaly-detection-project/
+├── README.md
+├── requirements.txt
+├── data/
+│   └── synthetic_data.csv
+├── src/
+│   ├── data_generation.py
+│   ├── anomaly_detection.py
+│   └── visualization.py
+├── notebooks/
+│   └── analysis.ipynb
+├── tests/
+│   ├── test_data_generation.py
+│   └── test_anomaly_detection.py
+├── results/
+│   ├── arima_forecast.png
+│   └── detected_anomalies.png
+└── app/
+    ├── app.py
+    └── templates/
+        └── index.html
+```
 
 ## Setup and Usage
 
@@ -67,6 +87,25 @@ We implemented an anomaly detection system using ARIMA forecasting residuals. Th
    ```
 
    Then open your browser and go to `http://localhost:5000`.
+
+6. To run the tests:
+   ```
+   pytest tests/
+   ```
+
+## Key Findings
+
+1. The ARIMA-based anomaly detection method identified several anomalies that were missed by traditional methods.
+2. These anomalies corresponded to significant business events or process inefficiencies that were previously unnoticed.
+3. The method proved to be robust against false positives, providing high-confidence anomaly detection.
+4. The web application provides an intuitive interface for visualizing the time series data and detected anomalies.
+
+## Future Improvements
+
+1. Implement real-time anomaly detection for streaming data.
+2. Explore other time series models (e.g., SARIMA, Prophet) for comparison.
+3. Develop a more sophisticated web dashboard with additional analytics and user interaction.
+4. Integrate with external data sources for more comprehensive anomaly detection.
 
 ## Contributing
 
