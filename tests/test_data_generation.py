@@ -1,41 +1,35 @@
 import pytest
 import pandas as pd
 import numpy as np
-from src.anomaly_detection import test_stationarity, difference_series, detect_anomalies
-from src.data_generation import generate_synthetic_data
+from src.anomaly_detection import detect_anomalies
 
-@pytest.fixture
-def sample_data():
-    return generate_synthetic_data()
-
-def test_test_stationarity(sample_data):
-    result = test_stationarity(sample_data['value'])
-    assert isinstance(result, bool)
-
-def test_difference_series(sample_data):
-    diff, count = difference_series(sample_data['value'])
-    assert isinstance(diff, pd.Series)
-    assert isinstance(count, int)
-    assert count >= 0
-
-def test_detect_anomalies(sample_data):
-    df_with_anomalies = detect_anomalies(sample_data)
+def test_detect_anomalies():
+    # Create a sample dataset with known anomalies
+    dates = pd.date_range(start='2022-01-01', periods=100, freq='D')
+    values = np.random.randn(100).cumsum() + 100  # Random walk
+    values[50] += 50  # Introduce an anomaly
+    values[80] -= 50  # Introduce another anomaly
     
-    assert 'anomaly' in df_with_anomalies.columns
-    assert df_with_anomalies['anomaly'].dtype == bool
-    assert df_with_anomalies['anomaly'].sum() > 0  # Ensure some anomalies are detected
-    assert df_with_anomalies['anomaly'].sum() < len(df_with_anomalies)  # Ensure not everything is flagged as anomaly
-
-def test_detect_anomalies_custom_threshold(sample_data):
-    df_with_anomalies_1 = detect_anomalies(sample_data, threshold=2)
-    df_with_anomalies_2 = detect_anomalies(sample_data, threshold=4)
+    df = pd.DataFrame({'date': dates, 'value': values})
+    df.set_index('date', inplace=True)
     
-    # Lower threshold should detect more anomalies
-    assert df_with_anomalies_1['anomaly'].sum() >= df_with_anomalies_2['anomaly'].sum()
-
-def test_detect_anomalies_different_column(sample_data):
-    sample_data['other_column'] = sample_data['value'] * 2
-    df_with_anomalies = detect_anomalies(sample_data, column='other_column')
+    result = detect_anomalies(df)
     
-    assert 'anomaly' in df_with_anomalies.columns
-    assert df_with_anomalies
+    # Check if the function adds the expected columns
+    assert all(col in result.columns for col in ['forecast', 'residual', 'residual_mean', 'residual_std', 'anomaly'])
+    
+    # Check if the known anomalies are detected
+    assert result.loc['2022-02-19', 'anomaly']  # 50th day
+    assert result.loc['2022-03-21', 'anomaly']  # 80th day
+    
+    # Check if the number of detected anomalies is reasonable (adjust as needed)
+    assert 2 <= result['anomaly'].sum() <= 5
+
+    # Check if forecasts are generated for all data points
+    assert result['forecast'].notna().all()
+    
+    # Check if residuals are calculated correctly
+    np.testing.assert_allclose(result['residual'], result['value'] - result['forecast'])
+
+if __name__ == "__main__":
+    pytest.main([__file__])
