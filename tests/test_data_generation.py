@@ -1,5 +1,6 @@
 import pytest
 import pandas as pd
+import numpy as np
 from src.data_generation import generate_synthetic_data
 
 def test_generate_synthetic_data():
@@ -24,4 +25,32 @@ def test_generate_synthetic_data_anomalies():
     
     # Check if there are at least 3 significant jumps in the data
     diff = df['value'].diff().abs()
-    large_jumps = diff[diff > diff.mean() + 2*
+    large_jumps = diff[diff > diff.mean() + 2*diff.std()]
+    assert len(large_jumps) >= 3
+
+def test_generate_synthetic_data_seasonality():
+    df = generate_synthetic_data()
+    
+    # Check for seasonality by comparing first and last quarter of the year
+    first_quarter = df['value'][:91].mean()
+    last_quarter = df['value'][-91:].mean()
+    assert abs(first_quarter - last_quarter) > 20  # Assuming significant seasonal difference
+
+def test_generate_synthetic_data_trend():
+    df = generate_synthetic_data()
+    
+    # Check for overall increasing trend
+    first_month = df['value'][:30].mean()
+    last_month = df['value'][-30:].mean()
+    assert last_month > first_month
+
+def test_generate_synthetic_data_noise():
+    df = generate_synthetic_data()
+    
+    # Check for presence of noise
+    smooth = df['value'].rolling(window=7).mean()
+    noise = df['value'] - smooth
+    assert noise.std() > 0  # Ensure there's some variation due to noise
+
+if __name__ == "__main__":
+    pytest.main()
